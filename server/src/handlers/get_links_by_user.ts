@@ -1,35 +1,21 @@
+import { db } from '../db';
+import { linksTable } from '../db/schema';
 import { type GetLinksByUserInput, type Link } from '../schema';
+import { eq, asc } from 'drizzle-orm';
 
-export async function getLinksByUser(input: GetLinksByUserInput): Promise<Link[]> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is fetching all links for a specific user,
-    // ordered by position for display on their link-in-bio page.
-    return Promise.resolve([
-        {
-            id: 1,
-            user_id: input.user_id,
-            title: 'My Portfolio',
-            url: 'https://example.com/portfolio',
-            description: 'Check out my latest work',
-            icon: 'portfolio',
-            position: 0,
-            is_active: true,
-            click_count: 42,
-            created_at: new Date(),
-            updated_at: new Date()
-        },
-        {
-            id: 2,
-            user_id: input.user_id,
-            title: 'Instagram',
-            url: 'https://instagram.com/username',
-            description: 'Follow me on Instagram',
-            icon: 'instagram',
-            position: 1,
-            is_active: true,
-            click_count: 128,
-            created_at: new Date(),
-            updated_at: new Date()
-        }
-    ] as Link[]);
-}
+export const getLinksByUser = async (input: GetLinksByUserInput): Promise<Link[]> => {
+  try {
+    // Query links for the specified user, ordered by position for display
+    const results = await db.select()
+      .from(linksTable)
+      .where(eq(linksTable.user_id, input.user_id))
+      .orderBy(asc(linksTable.position))
+      .execute();
+
+    // Return the results directly - no numeric conversions needed as all fields are integers/text
+    return results;
+  } catch (error) {
+    console.error('Failed to get links by user:', error);
+    throw error;
+  }
+};

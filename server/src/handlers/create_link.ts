@@ -1,21 +1,50 @@
+import { db } from '../db';
+import { linksTable, usersTable } from '../db/schema';
 import { type CreateLinkInput, type Link } from '../schema';
+import { eq, max } from 'drizzle-orm';
 
-export async function createLink(input: CreateLinkInput): Promise<Link> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is creating a new link for a user's link-in-bio page,
-    // automatically setting the position to the next available slot if not specified,
-    // and validating the URL format.
-    return Promise.resolve({
-        id: 0, // Placeholder ID
+export const createLink = async (input: CreateLinkInput): Promise<Link> => {
+  try {
+    // Verify user exists before creating link
+    const user = await db.select()
+      .from(usersTable)
+      .where(eq(usersTable.id, input.user_id))
+      .execute();
+
+    if (user.length === 0) {
+      throw new Error(`User with id ${input.user_id} not found`);
+    }
+
+    // Determine position if not provided
+    let position = input.position;
+    if (position === undefined) {
+      // Get the highest position for this user
+      const maxPositionResult = await db
+        .select({ maxPosition: max(linksTable.position) })
+        .from(linksTable)
+        .where(eq(linksTable.user_id, input.user_id))
+        .execute();
+
+      const currentMaxPosition = maxPositionResult[0]?.maxPosition;
+      position = currentMaxPosition !== null ? currentMaxPosition + 1 : 0;
+    }
+
+    // Insert link record
+    const result = await db.insert(linksTable)
+      .values({
         user_id: input.user_id,
         title: input.title,
         url: input.url,
-        description: input.description,
-        icon: input.icon,
-        position: input.position || 0,
-        is_active: true,
-        click_count: 0,
-        created_at: new Date(),
-        updated_at: new Date()
-    } as Link);
-}
+        description: input.description || null,
+        icon: input.icon || null,
+        position: position
+      })
+      .returning()
+      .execute();
+
+    return result[0];
+  } catch (error) {
+    console.error('Link creation failed:', error);
+    throw error;
+  }
+};

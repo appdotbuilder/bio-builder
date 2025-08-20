@@ -1,11 +1,25 @@
+import { db } from '../db';
+import { linksTable } from '../db/schema';
 import { type TrackLinkClickInput } from '../schema';
+import { eq, sql } from 'drizzle-orm';
 
-export async function trackLinkClick(input: TrackLinkClickInput): Promise<{ success: boolean }> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is incrementing the click_count for a specific link
-    // to provide analytics for creators about which links are most popular.
-    // This would typically be called when a user clicks on a link in the bio page.
-    return Promise.resolve({
-        success: true
-    });
-}
+export const trackLinkClick = async (input: TrackLinkClickInput): Promise<{ success: boolean }> => {
+  try {
+    // Use SQL to increment the click count atomically
+    const result = await db
+      .update(linksTable)
+      .set({
+        click_count: sql`${linksTable.click_count} + 1`,
+        updated_at: new Date()
+      })
+      .where(eq(linksTable.id, input.link_id))
+      .returning()
+      .execute();
+
+    // Return success if at least one row was updated
+    return { success: result.length > 0 };
+  } catch (error) {
+    console.error('Link click tracking failed:', error);
+    throw error;
+  }
+};
